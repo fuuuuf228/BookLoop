@@ -1,6 +1,8 @@
 import React from 'react';
-import Navigation from './Navigation';
+import Navigation from './Navigation'; // Імпортуйте компонент навігації
 
-export default function App() {
+const App = () => {
   return <Navigation />;
 };
+
+export default App;
