@@ -1,5 +1,3 @@
-// Navigation.js
-
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
@@ -31,27 +29,45 @@ const AuthStack = () => (
     <Stack.Screen
       name="SignInPage"
       component={SignInPage}
-      options={{ headerShown: false }} 
+      options={{ headerShown: false }}
     />
     <Stack.Screen
       name="SignUpPage"
       component={SignUpPage}
-      options={{ headerShown: false }} 
+      options={{ headerShown: false }}
     />
     <Stack.Screen name="HomePage" component={HomePage} options={{ headerShown: false }} />
   </Stack.Navigator>
 );
 
-// Налаштування нижніх вкладок для основних екранів
+// Основні вкладки
 const MainTabs = () => (
-  <NavigationContainer>
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="MainPage" component={MainPage} />
-      <Stack.Screen name="SignInPage" component={SignInPage} />
-      <Stack.Screen name="SignUpPage" component={SignUpPage} />
-      <Stack.Screen name="HomePage" component={HomePage} />  {/* Додайте HomePage до Stack Navigator */}
-    </Stack.Navigator>
-  </NavigationContainer>
+  <Tab.Navigator
+    screenOptions={({ route }) => ({
+      headerShown: false,
+      tabBarStyle: { backgroundColor: '#95897D' },
+      tabBarActiveTintColor: '#fff',
+      tabBarInactiveTintColor: '#d1d1d1',
+      tabBarIcon: ({ color, size }) => {
+        let iconName;
+        if (route.name === 'Home') {
+          iconName = 'home-outline';
+        } else if (route.name === 'Recs') {
+          iconName = 'book-outline';
+        } else if (route.name === 'Chat') {
+          iconName = 'chatbubble-outline';
+        } else if (route.name === 'Profile') {
+          iconName = 'person-outline';
+        }
+        return <Ionicons name={iconName} size={size} color={color} />;
+      },
+    })}
+  >
+    <Tab.Screen name="Home" component={HomeScreen} />
+    <Tab.Screen name="Recs" component={RecsScreen} />
+    <Tab.Screen name="Chat" component={NotificationsScreen} />
+    <Tab.Screen name="Profile" component={ProfileScreen} />
+  </Tab.Navigator>
 );
 
 // Головний компонент навігації

@@ -1,57 +1,120 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, FlatList, Animated, Dimensions, Image, ImageBackground } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, FlatList, Animated, Dimensions, Image, TextInput } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Ionicons } from '@expo/vector-icons'; // Іконки з Expo
+import { Ionicons } from '@expo/vector-icons'; // Icons from Expo
 import { createClient } from '@supabase/supabase-js'; // Supabase
+import AsyncStorage from '@react-native-async-storage/async-storage'; // AsyncStorage for Supabase
 
 const { width } = Dimensions.get('window');
 const Tab = createBottomTabNavigator();
 
-// Ініціалізація Supabase
-const supabaseUrl = 'https://afqwgphwdfkrjohuxngq.supabase.co'; // Заміни на свій Supabase URL
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFmcXdncGh3ZGZrcmpvaHV4bmdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjUxMTM4MzYsImV4cCI6MjA0MDY4OTgzNn0.pAeNMvpheuZtiUV5QOuHdl7gmhtVr3ASizPo-QPjnVM'; // Заміни на свій Supabase ключ
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Supabase Initialization
+const supabaseUrl = 'https://afqwgphwdfkrjohuxngq.supabase.co';
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFmcXdncGh3ZGZrcmpvaHV4bmdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjUxMTM4MzYsImV4cCI6MjA0MDY4OTgzNn0.pAeNMvpheuZtiUV5QOuHdl7gmhtVr3ASizPo-QPjnVM';
+const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    storage: AsyncStorage,
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: false,
+  },
+});
 
-const HomeScreen = () => {
-  const [books, setBooks] = useState([]);
-  const [menuVisible, setMenuVisible] = useState(false);
-  const slideAnim = useRef(new Animated.Value(-width * 0.7)).current;
+const truncateTitle = (title) => {
+    const words = title.split(' ');
+    if (words.length > 3) {
+      return words.slice(0, 3).join(' ') + '...';
+    }
+    return title;
+  };
 
-  // Завантаження даних з Supabase
-  useEffect(() => {
-    const fetchBooks = async () => {
-      const { data, error } = await supabase.from('book').select('name, author, genre, photo');
-
-      if (error) {
-        console.log('Error fetching books:', error);
-      } else {
-        setBooks(data);
-      }
+// AnnouncementCard Component
+const AnnouncementCard = ({ name, author, genre, geolocation, imageUrl }) => {
+    const [isSaved, setIsSaved] = useState(false); // Доданий стан для кнопки збереження
+  
+    const handleSavePress = () => {
+      setIsSaved(!isSaved);
+    };
+    return (
+        <View style={styles.card}>
+          <Image source={{ uri: imageUrl }} style={styles.image} />
+          <View style={styles.details}>
+            <Text style={styles.name}>{truncateTitle(name)}</Text>
+            <Text style={styles.author}>{author}</Text>
+            <Text style={styles.genre}>Жанр: {genre}</Text>
+    
+            {/* Доданий значок та геолокація */}
+            <View style={styles.geolocationContainer}>
+              <Image source={require('../assets/icons/Location.png')} style={styles.geolocationIcon} />
+              <Text style={styles.geolocationText}>{geolocation}</Text>
+            </View>
+          </View>
+          {/* Change Icon */}
+          <TouchableOpacity style={styles.changeButton}>
+            <Image source={require('../assets/icons/Change.png')} style={styles.iconImage} />
+          </TouchableOpacity>
+    
+          {/* Save Icon */}
+          <TouchableOpacity style={styles.bookmarkButton} onPress={handleSavePress}>
+            <Image source={isSaved ? require('../assets/icons/SavePress.png') : require('../assets/icons/Save.png')} style={styles.iconImage} />
+          </TouchableOpacity> 
+        </View>
+      );
     };
 
-    fetchBooks();
-  }, []);
+// HomeScreen Component
+const HomeScreen = () => {
+  const [announcements, setAnnouncements] = useState([]);
+  const [menuVisible, setMenuVisible] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const slideAnim = useRef(new Animated.Value(-width * 0.7)).current;
 
-  const toggleMenu = () => {
-    if (!menuVisible) {
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: true,
-      }).start();
-    } else {
-      Animated.timing(slideAnim, {
-        toValue: -width * 0.7,
-        duration: 300,
-        useNativeDriver: true,
-      }).start();
-    }
-    setMenuVisible(!menuVisible);
-  };
+  // Fetch announcements from Supabase
+  useEffect(() => {
+    const fetchAnnouncements = async () => {
+      const { data, error } = await supabase
+        .from('book')
+        .select('name, author, genre, photo, announcement(geolocation)');
+        
+      if (error) {
+        console.log('Error fetching announcements:', error);
+      } else {
+        // Оновлення: додавання поля geolocation
+        const announcementsWithGeo = data.map(item => ({
+            ...item,
+            geolocation: item.announcement?.geolocation || 'Немає даних' // Перевірка на наявність геолокації
+          }));
+          setAnnouncements(announcementsWithGeo);
+        }
+      };
+
+      fetchAnnouncements();
+    }, []);
+  
+    const toggleMenu = () => {
+      if (!menuVisible) {
+        Animated.timing(slideAnim, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: true,
+        }).start();
+      } else {
+        Animated.timing(slideAnim, {
+          toValue: -width * 0.7,
+          duration: 300,
+          useNativeDriver: true,
+        }).start();
+      }
+      setMenuVisible(!menuVisible);
+    };
+
+  const filteredAnnouncements = announcements.filter((announcement) =>
+    announcement.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
     <View style={styles.container}>
-      {/* Випадне меню */}
+      {/* Sliding Menu */}
       <Animated.View style={[styles.menuContainer, { transform: [{ translateX: slideAnim }] }]}>
         <View style={styles.menuHeader}>
           <Text style={styles.menuTitle}>Меню</Text>
@@ -83,23 +146,30 @@ const HomeScreen = () => {
         </View>
       </Animated.View>
 
-      {/* Список книжок */}
+      {/* Search Input */}
+      <TextInput
+        style={styles.searchInput}
+        placeholder="Пошук книжок..."
+        value={searchQuery}
+        onChangeText={text => setSearchQuery(text)}
+      />
+
+      {/* Announcements List */}
       <FlatList
-        data={books}
+        data={filteredAnnouncements}
         keyExtractor={(item) => item.name}
         renderItem={({ item }) => (
-          <View style={styles.bookItem}>
-            <Image source={{ uri: item.photo }} style={styles.bookImage} />
-            <View style={styles.bookDetails}>
-              <Text style={styles.title}>{item.name}</Text>
-              <Text style={styles.author}>{item.author}</Text>
-              <Text style={styles.genre}>Жанр: {item.genre}</Text>
-            </View>
-          </View>
+          <AnnouncementCard
+            name={item.name}
+            author={item.author}
+            genre={item.genre}
+            geolocation={item.geolocation}
+            imageUrl={item.photo}
+          />
         )}
       />
 
-      {/* Кнопка для відкриття меню */}
+      {/* Button to Open Menu */}
       <TouchableOpacity onPress={toggleMenu} style={styles.menuButton}>
         <Ionicons name="menu" size={24} color="#fff" />
       </TouchableOpacity>
@@ -107,7 +177,7 @@ const HomeScreen = () => {
   );
 };
 
-// Інші вкладки
+// Other Tabs
 const RecsScreen = () => (
   <View style={styles.screen}>
     <Text>Recs Screen</Text>
@@ -157,22 +227,9 @@ const MainTabs = () => (
   </Tab.Navigator>
 );
 
-const HomePage = ({ navigation }) => {
+const App = () => {
   return (
-    <View style={styles.container}>
-      <ImageBackground
-        source={require('../assets/main_page/background.png')}
-        style={styles.background}
-      >
-        <TouchableOpacity
-          style={styles.skipButton}
-          onPress={() => navigation.navigate('MainTabs')}
-        >
-          <Text style={styles.skipButtonText}>Пропуск</Text>
-        </TouchableOpacity>
-        <MainTabs />
-      </ImageBackground>
-    </View>
+    <MainTabs />
   );
 };
 
@@ -180,67 +237,92 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  background: {
-    flex: 1,
-    width: '100%',
-    height: '100%',
-  },
   screen: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  skipButton: {
-    position: 'absolute',
-    top: 40,
-    right: 20,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 20,
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  skipButtonText: {
-    fontSize: 16,
-    color: '#000',
-  },
-  bookItem: {
+  card: {
     flexDirection: 'row',
-    marginBottom: 20,
+    borderRadius: 16,
     padding: 10,
-    backgroundColor: '#f8f8f8',
-    borderRadius: 8,
+    marginBottom: 20,
+    marginHorizontal: 16,
+    alignItems: 'center',
+    borderColor: '#C0B0A5',  
+    borderWidth: 1,
+    elevation: 1,            // Тінь для Android
+    shadowColor: '#000',     // Колір тіні для iOS
+    shadowOffset: { width: 0, height: 1 }, // Зсув тіні для iOS
+    shadowOpacity: 0.1,      // Прозорість тіні для iOS
+    shadowRadius: 2,         // Радіус тіні для iOS
+    position: 'relative',    // Позиціонування для внутрішніх елементів
   },
-  bookImage: {
-    width: 80,
-    height: 120,
-    borderRadius: 8,
+  bookmarkButton: {
+    position: 'absolute',
+    top: 10,
+    right: 20,
+    padding: 5,
+  },
+  changeButton: {
+    position: 'absolute',
+    top: 10,
+    right: 60,
+    padding: 5,
+  }, // Доданий стиль для кнопки обміну
+  iconImage: {
+    width: 25,
+    height: 25,
+  },
+  image: {
+    width: 50,
+    height: 75,
+    borderRadius: 4,
     marginRight: 10,
   },
-  bookDetails: {
+  details: {
     flex: 1,
-    justifyContent: 'center',
   },
-  title: {
-    fontSize: 18,
+  name: {
+    fontSize: 16,
     fontWeight: 'bold',
+    flexShrink: 1,          // Запобігає розтягуванню елемента
   },
   author: {
-    fontSize: 16,
-    color: '#333',
-  },
-  genre: {
     fontSize: 14,
     color: '#555',
+  },
+  genre: {
+    fontSize: 12, // Розмір шрифту
+    color: '#34302C', // Білий текст
+    backgroundColor: '#C5B6A7', // Коричневий фон
+    paddingVertical: 4, // Вертикальні відступи
+    paddingHorizontal: 6, // Зменшені горизонтальні відступи
+    borderRadius: 50, // Заокруглення кутів
+    borderColor: '#DEDAD7', 
+    borderWidth: 1,  
+    marginTop: 4, // Верхній відступ
+    alignSelf: 'flex-start', // Фон адаптується до ширини тексту
+  },  
+  geolocationContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  geolocationIcon: {
+    width: 16,
+    height: 16,
+    marginRight: 4,
+  },
+  geolocationText: {
+    fontSize: 12,
+    color: '#777',
   },
   menuButton: {
     position: 'absolute',
     top: 20,
     left: 10,
+    marginTop: 30,
     padding: 10,
     backgroundColor: '#8B7D6B',
     borderRadius: 5,
@@ -251,28 +333,24 @@ const styles = StyleSheet.create({
     left: 0,
     width: width * 0.7,
     height: '100%',
-    backgroundColor: '#A4826D',
-    paddingTop: 50,
+    backgroundColor: '#95897D',
+    zIndex: 2,
+    paddingTop: 40,
     paddingHorizontal: 20,
-    zIndex: 10,
   },
   menuHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingBottom: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.3)',
+    marginBottom: 20,
   },
   menuTitle: {
     color: '#fff',
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
   },
   closeMenuButton: {
-    backgroundColor: '#8B7D6B',
     padding: 5,
-    borderRadius: 5,
   },
   menuItems: {
     marginTop: 20,
@@ -280,13 +358,32 @@ const styles = StyleSheet.create({
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
+    marginBottom: 20,
   },
   menuItemText: {
     color: '#fff',
-    fontSize: 18,
+    fontSize: 16,
     marginLeft: 10,
+  },
+  icon: {
+    width: 30,
+  },
+  searchInput: {
+    height: 31,
+    borderColor: '#C5B6A7',
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingHorizontal: 10,
+    marginTop: 120,
+    marginBottom: 20,
+    marginHorizontal: 20,
+  },
+  changeButton: {
+    position: 'absolute',
+    top: 10,
+    right: 60,
+    padding: 5,
   },
 });
 
-export default HomeScreen;
+export default App;
