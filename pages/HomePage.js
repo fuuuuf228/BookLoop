@@ -71,31 +71,33 @@ const HomeScreen = () => {
 
   // Fetch announcements from Supabase
   useEffect(() => {
-    const fetchAnnouncements = async () => {
+const fetchAnnouncements = async () => {
   const { data, error } = await supabase
-    .from('book')
+    .from('announcement')
     .select(`
-      name,
-      author,
-      genre,
-      photo,
-      announcement (
-        geolocation
+      geolocation,
+      book:book_id (
+        name,
+        author,
+        genre,
+        photo
       )
     `);
 
   if (error) {
     console.log('Error fetching announcements:', error);
   } else {
-    // Обробка даних для створення нового масиву з геолокацією
-    const announcementsWithGeo = data.map(item => ({
-      ...item,
-      geolocation: item.announcement[0]?.geolocation || 'Немає даних' // Отримання першого елемента з масиву 'announcement'
+    // Обробка даних для створення нового масиву з інформацією про книгу
+    const announcementsWithBookData = data.map(item => ({
+      name: item.book?.name || 'Невідомо',
+      author: item.book?.author || 'Невідомо',
+      genre: item.book?.genre || 'Невідомо',
+      photo: item.book?.photo || 'Немає фото',
+      geolocation: item.geolocation || 'Немає даних'
     }));
-    setAnnouncements(announcementsWithGeo);
+    setAnnouncements(announcementsWithBookData);
   }
 };
-
 
       fetchAnnouncements();
     }, []);
@@ -164,19 +166,21 @@ const HomeScreen = () => {
       />
 
       {/* Announcements List */}
-      <FlatList
-        data={filteredAnnouncements}
-        keyExtractor={(item) => item.name}
-        renderItem={({ item }) => (
-          <AnnouncementCard
-            name={item.name}
-            author={item.author}
-            genre={item.genre}
-            geolocation={item.geolocation}
-            imageUrl={item.photo}
-          />
-        )}
-      />
+<FlatList
+  data={filteredAnnouncements}
+  keyExtractor={(item) => item.name}
+  renderItem={({ item }) => (
+    <AnnouncementCard
+      name={item.name}
+      author={item.author}
+      genre={item.genre}
+      geolocation={item.geolocation}
+      imageUrl={item.photo}
+    />
+  )}
+/>
+
+
 
       {/* Button to Open Menu */}
       <TouchableOpacity onPress={toggleMenu} style={styles.menuButton}>
