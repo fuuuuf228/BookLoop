@@ -72,21 +72,30 @@ const HomeScreen = () => {
   // Fetch announcements from Supabase
   useEffect(() => {
     const fetchAnnouncements = async () => {
-      const { data, error } = await supabase
-        .from('book')
-        .select('name, author, genre, photo, announcement(geolocation)');
-        
-      if (error) {
-        console.log('Error fetching announcements:', error);
-      } else {
-        // Оновлення: додавання поля geolocation
-        const announcementsWithGeo = data.map(item => ({
-            ...item,
-            geolocation: item.announcement?.geolocation || 'Немає даних' // Перевірка на наявність геолокації
-          }));
-          setAnnouncements(announcementsWithGeo);
-        }
-      };
+  const { data, error } = await supabase
+    .from('book')
+    .select(`
+      name,
+      author,
+      genre,
+      photo,
+      announcement (
+        geolocation
+      )
+    `);
+
+  if (error) {
+    console.log('Error fetching announcements:', error);
+  } else {
+    // Обробка даних для створення нового масиву з геолокацією
+    const announcementsWithGeo = data.map(item => ({
+      ...item,
+      geolocation: item.announcement[0]?.geolocation || 'Немає даних' // Отримання першого елемента з масиву 'announcement'
+    }));
+    setAnnouncements(announcementsWithGeo);
+  }
+};
+
 
       fetchAnnouncements();
     }, []);
