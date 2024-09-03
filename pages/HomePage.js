@@ -98,8 +98,6 @@ const fetchAnnouncements = async () => {
     setAnnouncements(announcementsWithBookData);
   }
 };
-
-fetchAnnouncements();
     }, []);
   
     const toggleMenu = () => {
