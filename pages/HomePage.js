@@ -4,6 +4,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons'; // Icons from Expo
 import { createClient } from '@supabase/supabase-js'; // Supabase
 import AsyncStorage from '@react-native-async-storage/async-storage'; // AsyncStorage for Supabase
+import { useNavigation } from '@react-navigation/native'; // Імпортувати хук для навігації
 
 const { width } = Dimensions.get('window');
 const Tab = createBottomTabNavigator();
@@ -29,45 +30,55 @@ const truncateTitle = (title) => {
   };
 
 // AnnouncementCard Component
-const AnnouncementCard = ({ name, author, genre, geolocation, imageUrl }) => {
+const AnnouncementCard = ({ name, author, genre, geolocation, imageUrl, type }) => {
     const [isSaved, setIsSaved] = useState(false); // Доданий стан для кнопки збереження
   
     const handleSavePress = () => {
       setIsSaved(!isSaved);
     };
-    return (
-        <View style={styles.card}>
-          <Image source={{ uri: imageUrl }} style={styles.image} />
-          <View style={styles.details}>
-            <Text style={styles.name}>{truncateTitle(name)}</Text>
-            <Text style={styles.author}>{author}</Text>
-            <Text style={styles.genre}>Жанр: {genre}</Text>
-    
-            {/* Доданий значок та геолокація */}
-            <View style={styles.geolocationContainer}>
-              <Image source={require('../assets/icons/Location.png')} style={styles.geolocationIcon} />
-              <Text style={styles.geolocationText}>{geolocation}</Text>
-            </View>
-          </View>
-          {/* Change Icon */}
-          <TouchableOpacity style={styles.changeButton}>
-            <Image source={require('../assets/icons/Change.png')} style={styles.iconImage} />
-          </TouchableOpacity>
-    
-          {/* Save Icon */}
-          <TouchableOpacity style={styles.bookmarkButton} onPress={handleSavePress}>
-            <Image source={isSaved ? require('../assets/icons/SavePress.png') : require('../assets/icons/Save.png')} style={styles.iconImage} />
-          </TouchableOpacity> 
+    // Логіка для вибору іконки залежно від типу
+  const typeIcon = type === 'Обмін' ? require('../assets/icons/Change.png') : require('../assets/icons/buy.png');
+
+  return (
+    <View style={styles.card}>
+      <Image source={{ uri: imageUrl }} style={styles.image} />
+      <View style={styles.details}>
+        <Text style={styles.name}>{truncateTitle(name)}</Text>
+        <Text style={styles.author}>{author}</Text>
+        <Text style={styles.genre}>Жанр: {genre}</Text>
+
+        {/* Доданий значок та геолокація */}
+        <View style={styles.geolocationContainer}>
+          <Image source={require('../assets/icons/Location.png')} style={styles.geolocationIcon} />
+          <Text style={styles.geolocationText}>{geolocation}</Text>
         </View>
-      );
-    };
+      </View>
+
+      {/* Change/Buy Icon - Неклікабельна */}
+      <View style={styles.iconButton}>
+        <Image source={typeIcon} style={styles.iconImage} />
+      </View>
+
+      {/* Save Icon */}
+      <TouchableOpacity style={styles.bookmarkButton} onPress={handleSavePress}>
+        <Image source={isSaved ? require('../assets/icons/SavePress.png') : require('../assets/icons/Save.png')} style={styles.iconImage} />
+      </TouchableOpacity>
+    </View>
+  );
+};
 
 // HomeScreen Component
 const HomeScreen = () => {
-  const [announcements, setAnnouncements] = useState([]);
-  const [menuVisible, setMenuVisible] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const slideAnim = useRef(new Animated.Value(-width * 0.7)).current;
+    const [announcements, setAnnouncements] = useState([]);
+    const [menuVisible, setMenuVisible] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+    const slideAnim = useRef(new Animated.Value(-width * 0.7)).current;
+    const navigation = useNavigation(); // Використання хука для навігації
+
+// Перехід на AdvertPage
+const goToAdvertPage = () => {
+    navigation.navigate('AdvertPage');
+  };
 
   // Fetch announcements from Supabase
   useEffect(() => {
@@ -76,6 +87,7 @@ const fetchAnnouncements = async () => {
     .from('announcement')
     .select(`
       geolocation,
+      type,
       book:book_id (
         name,
         author,
@@ -93,11 +105,13 @@ const fetchAnnouncements = async () => {
       author: item.book?.author || 'Невідомо',
       genre: item.book?.genre || 'Невідомо',
       photo: item.book?.photo || 'Немає фото',
-      geolocation: item.geolocation || 'Немає даних'
+      geolocation: item.geolocation || 'Немає даних',
+      type: item.type || 'Продаж' // Додаємо type, за замовчуванням 'Продаж'
     }));
     setAnnouncements(announcementsWithBookData);
   }
 };
+
 
       fetchAnnouncements();
     }, []);
@@ -158,12 +172,15 @@ const fetchAnnouncements = async () => {
       </Animated.View>
 
       {/* Search Input */}
-      <TextInput
-        style={styles.searchInput}
-        placeholder="Пошук книжок..."
-        value={searchQuery}
-        onChangeText={text => setSearchQuery(text)}
-      />
+      <View style={styles.searchContainer}>
+        <Image source={require('../assets/icons/Search.png')} style={styles.searchIcon} />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Пошук книжок..."
+          value={searchQuery}
+          onChangeText={text => setSearchQuery(text)}
+        />
+      </View>
 
       {/* Announcements List */}
 <FlatList
@@ -176,15 +193,19 @@ const fetchAnnouncements = async () => {
       genre={item.genre}
       geolocation={item.geolocation}
       imageUrl={item.photo}
+      type={item.type} // Передаємо тип оголошення
     />
   )}
 />
 
-
-
       {/* Button to Open Menu */}
       <TouchableOpacity onPress={toggleMenu} style={styles.menuButton}>
-        <Ionicons name="menu" size={24} color="#fff" />
+        <Image source={require('../assets/icons/Burger.png')} style={styles.menuIcon} />
+      </TouchableOpacity>
+
+      {/* Button to AdvertPage */}
+      <TouchableOpacity onPress={goToAdvertPage} style={styles.advertButton}>
+        <Image source={require('../assets/icons/Add.png')} style={styles.advertIcon} />
       </TouchableOpacity>
     </View>
   );
@@ -277,6 +298,12 @@ const styles = StyleSheet.create({
     right: 20,
     padding: 5,
   },
+  iconButton: {
+    position: 'absolute',
+    top: 10,
+    right: 60,
+    padding: 5,
+  },
   changeButton: {
     position: 'absolute',
     top: 10,
@@ -307,15 +334,16 @@ const styles = StyleSheet.create({
   },
   genre: {
     fontSize: 12, // Розмір шрифту
-    color: '#34302C', // Білий текст
+    color: '#34302C', 
     backgroundColor: '#C5B6A7', // Коричневий фон
     paddingVertical: 4, // Вертикальні відступи
     paddingHorizontal: 6, // Зменшені горизонтальні відступи
-    borderRadius: 50, // Заокруглення кутів
+    borderRadius: 13, // Заокруглення кутів
     borderColor: '#DEDAD7', 
     borderWidth: 1,  
     marginTop: 4, // Верхній відступ
     alignSelf: 'flex-start', // Фон адаптується до ширини тексту
+    overflow: "hidden",
   },  
   geolocationContainer: {
     flexDirection: 'row',
@@ -331,14 +359,15 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#777',
   },
+  menuIcon: {
+    width: 16,   // Ширина зображення
+    height: 12,  // Висота зображення
+  },  
   menuButton: {
     position: 'absolute',
-    top: 20,
-    left: 10,
-    marginTop: 30,
+    left: 20,
+    marginTop: 42,
     padding: 10,
-    backgroundColor: '#8B7D6B',
-    borderRadius: 5,
   },
   menuContainer: {
     position: 'absolute',
@@ -381,16 +410,42 @@ const styles = StyleSheet.create({
   icon: {
     width: 30,
   },
-  searchInput: {
-    height: 31,
-    borderColor: '#C5B6A7',
-    borderWidth: 1,
-    borderRadius: 16,
-    paddingHorizontal: 10,
-    marginTop: 120,
-    marginBottom: 20,
-    marginHorizontal: 20,
+  searchContainer: {
+    flexDirection: 'row',  // Розташування елементів в ряд
+    alignItems: 'center',  // Вирівнювання елементів по центру вертикально
+    marginHorizontal: 20,  // Відступи зліва і справа
+    marginTop: 84,  // Відступ зверху
+    marginBottom: 10,
+    borderRadius: 20,  // Округлені краї
+    paddingHorizontal: 10,  // Відступи всередині контейнера
+    borderWidth: 1,  // Обведення для контейнера
+    borderColor: '#C5B6A7',  // Колір обведення
+    height: 40,  // Висота контейнера
+    alignSelf: 'center',  // Вирівнювання по центру
   },
+  searchInput: {
+    flex: 1,  // Розтягуємо поле для пошуку на весь простір, що залишився
+    height: 31,  // Висота поля для введення
+    borderColor: '#F0F0F0',  // Робимо обведення того ж кольору, що і фон контейнера
+    borderWidth: 0,  // Прибираємо обведення
+    borderRadius: 16,  // Округлені краї
+    paddingHorizontal: 10,  // Внутрішній відступ
+    backgroundColor: '#F0F0F0',  // Робимо фон поля для пошуку прозорим, щоб було видно фон контейнера
+  },
+  searchIcon: {
+    width: 20,  // Розмір іконки
+    height: 20,  // Розмір іконки
+  },  
+advertButton: {
+  position: 'absolute',
+  marginTop: 34,
+  right: 20,
+  borderRadius: 20,
+},
+advertIcon: {
+  width: 40,
+  height: 40,
+},
   changeButton: {
     position: 'absolute',
     top: 10,
