@@ -111,8 +111,6 @@ const fetchAnnouncements = async () => {
     setAnnouncements(announcementsWithBookData);
   }
 };
-
-
       fetchAnnouncements();
     }, []);
   
