@@ -30,12 +30,12 @@ const truncateTitle = (title) => {
   };
 
 // AnnouncementCard Component
-const AnnouncementCard = ({ name, author, genre, geolocation, imageUrl, type }) => {
-    const [isSaved, setIsSaved] = useState(false); // Доданий стан для кнопки збереження
-  
-    const handleSavePress = () => {
-      setIsSaved(!isSaved);
-    };
+const AnnouncementCard = ({ name, author, genre, geolocation, imageUrl, type, price }) => { // Accept price as a prop
+  const [isSaved, setIsSaved] = useState(false); // Доданий стан для кнопки збереження
+
+  const handleSavePress = () => {
+    setIsSaved(!isSaved);
+  };
     // Логіка для вибору іконки залежно від типу
   const typeIcon = type === 'Обмін' ? require('../assets/icons/Change.png') : require('../assets/icons/buy.png');
 
@@ -52,6 +52,9 @@ const AnnouncementCard = ({ name, author, genre, geolocation, imageUrl, type }) 
           <Image source={require('../assets/icons/Location.png')} style={styles.geolocationIcon} />
           <Text style={styles.geolocationText}>{geolocation}</Text>
         </View>
+
+        {/* Display price if available */}
+        {price && <Text style={styles.price}>{price}</Text>}
       </View>
 
       {/* Change/Buy Icon - Неклікабельна */}
@@ -80,39 +83,43 @@ const goToAdvertPage = () => {
     navigation.navigate('AdvertPage');
   };
 
-  // Fetch announcements from Supabase
-  useEffect(() => {
-const fetchAnnouncements = async () => {
-  const { data, error } = await supabase
-    .from('announcement')
-    .select(`
-      geolocation,
-      type,
-      book:book_id (
-        name,
-        author,
-        genre,
-        photo
-      )
-    `);
+// Update fetchAnnouncements function
+useEffect(() => {
+  const fetchAnnouncements = async () => {
+    const { data, error } = await supabase
+      .from('announcement')
+      .select(`
+        geolocation,
+        type,
+        price,
+        book:book_id (
+          name,
+          author,
+          genre,
+          photo
+        )
+      `);
 
-  if (error) {
-    console.log('Error fetching announcements:', error);
-  } else {
-    // Обробка даних для створення нового масиву з інформацією про книгу
-    const announcementsWithBookData = data.map(item => ({
-      name: item.book?.name || 'Невідомо',
-      author: item.book?.author || 'Невідомо',
-      genre: item.book?.genre || 'Невідомо',
-      photo: item.book?.photo || 'Немає фото',
-      geolocation: item.geolocation || 'Немає даних',
-      type: item.type || 'Продаж' // Додаємо type, за замовчуванням 'Продаж'
-    }));
-    setAnnouncements(announcementsWithBookData);
-  }
-};
-      fetchAnnouncements();
-    }, []);
+    if (error) {
+      console.error('Error fetching announcements:', error);
+    } else {
+      // Обробка даних для створення нового масиву з інформацією про книгу
+      const announcementsWithBookData = data.map(item => ({
+        name: item.book?.name || 'Невідомо',
+        author: item.book?.author || 'Невідомо',
+        genre: item.book?.genre || 'Невідомо',
+        photo: item.book?.photo || 'Немає фото',
+        geolocation: item.geolocation || 'Немає даних',
+        type: item.type || 'Продаж', // Додаємо type, за замовчуванням 'Продаж'
+        price: item.price > 0 ? `${item.price}₴` : null, // Включаємо ціну, якщо вона більше 0
+      }));
+
+      setAnnouncements(announcementsWithBookData);
+    }
+  };
+
+  fetchAnnouncements();
+}, []);
   
     const toggleMenu = () => {
       if (!menuVisible) {
@@ -184,16 +191,19 @@ const fetchAnnouncements = async () => {
 <FlatList
   data={filteredAnnouncements}
   keyExtractor={(item) => item.name}
-  renderItem={({ item }) => (
-    <AnnouncementCard
-      name={item.name}
-      author={item.author}
-      genre={item.genre}
-      geolocation={item.geolocation}
-      imageUrl={item.photo}
-      type={item.type} // Передаємо тип оголошення
-    />
-  )}
+  renderItem={({ item }) => {
+    return (
+      <AnnouncementCard
+        name={item.name}
+        author={item.author}
+        genre={item.genre}
+        geolocation={item.geolocation}
+        imageUrl={item.photo}
+        type={item.type} // Передаємо тип оголошення
+        price={item.price} // Pass price to AnnouncementCard
+      />
+    );
+  }}
 />
 
       {/* Button to Open Menu */}
@@ -266,190 +276,192 @@ const App = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  screen: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  card: {
-    flexDirection: 'row',
-    borderRadius: 16,
-    padding: 10,
-    marginBottom: 20,
-    marginHorizontal: 16,
-    alignItems: 'center',
-    borderColor: '#C0B0A5',  
-    borderWidth: 1,
-    elevation: 1,            // Тінь для Android
-    shadowColor: '#000',     // Колір тіні для iOS
-    shadowOffset: { width: 0, height: 1 }, // Зсув тіні для iOS
-    shadowOpacity: 0.1,      // Прозорість тіні для iOS
-    shadowRadius: 2,         // Радіус тіні для iOS
-    position: 'relative',    // Позиціонування для внутрішніх елементів
-  },
-  bookmarkButton: {
-    position: 'absolute',
-    top: 10,
-    right: 20,
-    padding: 5,
-  },
-  iconButton: {
-    position: 'absolute',
-    top: 10,
-    right: 60,
-    padding: 5,
-  },
-  changeButton: {
-    position: 'absolute',
-    top: 10,
-    right: 60,
-    padding: 5,
-  }, // Доданий стиль для кнопки обміну
-  iconImage: {
-    width: 25,
-    height: 25,
-  },
-  image: {
-    width: 50,
-    height: 75,
-    borderRadius: 4,
-    marginRight: 10,
-  },
-  details: {
-    flex: 1,
-  },
-  name: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    flexShrink: 1,          // Запобігає розтягуванню елемента
-  },
-  author: {
-    fontSize: 14,
-    color: '#555',
-  },
-  genre: {
-    fontSize: 12, // Розмір шрифту
-    color: '#34302C', 
-    backgroundColor: '#C5B6A7', // Коричневий фон
-    paddingVertical: 4, // Вертикальні відступи
-    paddingHorizontal: 6, // Зменшені горизонтальні відступи
-    borderRadius: 13, // Заокруглення кутів
-    borderColor: '#DEDAD7', 
-    borderWidth: 1,  
-    marginTop: 4, // Верхній відступ
-    alignSelf: 'flex-start', // Фон адаптується до ширини тексту
-    overflow: "hidden",
-  },  
-  geolocationContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 4,
-  },
-  geolocationIcon: {
-    width: 16,
-    height: 16,
-    marginRight: 4,
-  },
-  geolocationText: {
-    fontSize: 12,
-    color: '#777',
-  },
-  menuIcon: {
-    width: 16,   // Ширина зображення
-    height: 12,  // Висота зображення
-  },  
-  menuButton: {
-    position: 'absolute',
-    left: 20,
-    marginTop: 42,
-    padding: 10,
-  },
-  menuContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    width: width * 0.7,
-    height: '100%',
-    backgroundColor: '#95897D',
-    zIndex: 2,
-    paddingTop: 40,
-    paddingHorizontal: 20,
-  },
-  menuHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  menuTitle: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  closeMenuButton: {
-    padding: 5,
-  },
-  menuItems: {
-    marginTop: 20,
-  },
-  menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  menuItemText: {
-    color: '#fff',
-    fontSize: 16,
-    marginLeft: 10,
-  },
-  icon: {
-    width: 30,
-  },
-  searchContainer: {
-    flexDirection: 'row',  // Розташування елементів в ряд
-    alignItems: 'center',  // Вирівнювання елементів по центру вертикально
-    marginHorizontal: 20,  // Відступи зліва і справа
-    marginTop: 84,  // Відступ зверху
-    marginBottom: 10,
-    borderRadius: 20,  // Округлені краї
-    paddingHorizontal: 10,  // Відступи всередині контейнера
-    borderWidth: 1,  // Обведення для контейнера
-    borderColor: '#C5B6A7',  // Колір обведення
-    height: 40,  // Висота контейнера
-    alignSelf: 'center',  // Вирівнювання по центру
-  },
-  searchInput: {
-    flex: 1,  // Розтягуємо поле для пошуку на весь простір, що залишився
-    height: 31,  // Висота поля для введення
-    borderColor: '#F0F0F0',  // Робимо обведення того ж кольору, що і фон контейнера
-    borderWidth: 0,  // Прибираємо обведення
-    borderRadius: 16,  // Округлені краї
-    paddingHorizontal: 10,  // Внутрішній відступ
-    backgroundColor: '#F0F0F0',  // Робимо фон поля для пошуку прозорим, щоб було видно фон контейнера
-  },
-  searchIcon: {
-    width: 20,  // Розмір іконки
-    height: 20,  // Розмір іконки
-  },  
-advertButton: {
-  position: 'absolute',
-  marginTop: 34,
-  right: 20,
-  borderRadius: 20,
-},
-advertIcon: {
-  width: 40,
-  height: 40,
-},
-  changeButton: {
-    position: 'absolute',
-    top: 10,
-    right: 60,
-    padding: 5,
-  },
-});
-
-export default App;
+    container: {
+      flex: 1,
+    },
+    screen: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    card: {
+      flexDirection: 'row',
+      borderRadius: 16,
+      padding: 10,
+      marginBottom: 20,
+      marginHorizontal: 16,
+      alignItems: 'center',
+      borderColor: '#C0B0A5',  
+      borderWidth: 1,
+      elevation: 1,            // Тінь для Android
+      shadowColor: '#000',     // Колір тіні для iOS
+      shadowOffset: { width: 0, height: 1 }, // Зсув тіні для iOS
+      shadowOpacity: 0.1,      // Прозорість тіні для iOS
+      shadowRadius: 2,         // Радіус тіні для iOS
+      position: 'relative',    // Позиціонування для внутрішніх елементів
+    },
+    bookmarkButton: {
+      position: 'absolute',
+      top: 10,
+      right: 20,
+      padding: 5,
+    },
+    iconButton: {
+      position: 'absolute',
+      top: 10,
+      right: 60,
+      padding: 5,
+    },
+    changeButton: {
+      position: 'absolute',
+      top: 10,
+      right: 60,
+      padding: 5,
+    }, // Доданий стиль для кнопки обміну
+    iconImage: {
+      width: 25,
+      height: 25,
+    },
+    image: {
+      width: 50,
+      height: 75,
+      borderRadius: 4,
+      marginRight: 10,
+    },
+    details: {
+      flex: 1,
+    },
+    name: {
+      fontSize: 16,
+      fontWeight: 'bold',
+      flexShrink: 1,          // Запобігає розтягуванню елемента
+    },
+    author: {
+      fontSize: 14,
+      color: '#555',
+    },
+    genre: {
+      fontSize: 12, // Розмір шрифту
+      color: '#34302C', 
+      backgroundColor: '#C5B6A7', // Коричневий фон
+      paddingVertical: 4, // Вертикальні відступи
+      paddingHorizontal: 6, // Зменшені горизонтальні відступи
+      borderRadius: 13, // Заокруглення кутів
+      borderColor: '#DEDAD7', 
+      borderWidth: 1,  
+      marginTop: 4, // Верхній відступ
+      alignSelf: 'flex-start', // Фон адаптується до ширини тексту
+      overflow: "hidden",
+    },  
+    price: {
+      position: 'absolute',  // Фіксоване положення
+      bottom: 0,            // Розміщення внизу картки
+      right: 10,             // Розміщення справа
+      fontSize: 16,          // Розмір шрифту
+      color: '#494948',      // Колір тексту
+    },
+    geolocationContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginTop: 4,
+    },
+    geolocationIcon: {
+      width: 16,
+      height: 19,
+      marginRight: 4,
+    },
+    geolocationText: {
+      fontSize: 16,
+      color: '#494948',
+    },
+    menuIcon: {
+      width: 16,   // Ширина зображення
+      height: 12,  // Висота зображення
+    },  
+    menuButton: {
+      position: 'absolute',
+      left: 20,
+      marginTop: 42,
+      padding: 10,
+    },
+    menuContainer: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      width: width * 0.7,
+      height: '100%',
+      backgroundColor: '#95897D',
+      zIndex: 2,
+      paddingTop: 40,
+      paddingHorizontal: 20,
+    },
+    menuHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 20,
+    },
+    menuTitle: {
+      color: '#fff',
+      fontSize: 18,
+      fontWeight: 'bold',
+    },
+    closeMenuButton: {
+      padding: 5,
+    },
+    menuItems: {
+      marginTop: 20,
+    },
+    menuItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 20,
+    },
+    menuItemText: {
+      color: '#fff',
+      fontSize: 16,
+      marginLeft: 10,
+    },
+    icon: {
+      width: 30,
+    },
+    searchContainer: {
+      flexDirection: 'row',  // Розташування елементів в ряд
+      alignItems: 'center',  // Вирівнювання елементів по центру вертикально
+      marginHorizontal: 20,  // Відступи зліва і справа
+      marginTop: 84,  // Відступ зверху
+      marginBottom: 10,
+      borderRadius: 20,  // Округлені краї
+      paddingHorizontal: 10,  // Відступи всередині контейнера
+      borderWidth: 1,  // Обведення для контейнера
+      borderColor: '#C5B6A7',  // Колір обведення
+      height: 40,  // Висота контейнера
+      alignSelf: 'center',  // Вирівнювання по центру
+    },
+    searchInput: {
+      flex: 1,  // Розтягуємо поле для пошуку на весь простір, що залишився
+      height: 31,  // Висота поля для введення
+      borderColor: '#F0F0F0',  // Робимо обведення того ж кольору, що і фон контейнера
+      borderWidth: 0,  // Прибираємо обведення
+      borderRadius: 16,  // Округлені краї
+      paddingHorizontal: 10,  // Внутрішній відступ
+      backgroundColor: '#F0F0F0',  // Робимо фон поля для пошуку прозорим, щоб було видно фон контейнера
+    },
+    searchIcon: {
+      width: 20,  // Розмір іконки
+      height: 20,  // Розмір іконки
+    },  
+    advertButton: {
+      position: 'absolute',
+      marginTop: 34,
+      right: 20,
+      borderRadius: 20,
+    },
+    advertIcon: {
+      width: 40,
+      height: 40,
+    },
+  });
+  
+  export default App;
+  
